@@ -212,16 +212,22 @@
   function badgeList() {
     var allLessons = lessons.every(function (l) { return !!state.done[l.id]; });
     var allReady = conceptOrder.every(function (k) { return state.mastery[k] && state.mastery[k].status === 'ready'; });
-    var badges = [];
-    if (allLessons) badges.push('Finished all lessons');
-    if (allReady) badges.push('Ready on every objective');
-    if (state.challengeDone) badges.push('Completed the final challenge');
-    return badges;
+    return [
+      { name: 'Finished all lessons', unlocked: allLessons, detail: 'Complete every lesson', icon: '<path d="M5 5.5c2.7-.8 5.1-.3 7 1.2v12c-1.9-1.5-4.3-2-7-1.2zM19 5.5c-2.7-.8-5.1-.3-7 1.2v12c1.9-1.5 4.3-2 7-1.2z"/><path d="m8 11 1.6 1.6 2.8-3"/>' },
+      { name: 'Ready on every objective', unlocked: allReady, detail: 'Reach Ready on all six objectives', icon: '<path d="m12 3 2.6 5.3 5.9.9-4.3 4.2 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.2 5.9-.9z"/>' },
+      { name: 'Completed the final challenge', unlocked: !!state.challengeDone, detail: 'Build the BST and finish its BFS traversal', icon: '<path d="M12 3v5M12 8 7 13M12 8l5 5M7 13v4M17 13v4M5 18h4M15 18h4"/><circle cx="12" cy="4" r="1.5"/><circle cx="7" cy="13" r="1.5"/><circle cx="17" cy="13" r="1.5"/>' }
+    ];
   }
   function badgesHTML() {
     var badges = badgeList();
-    return '<section class="block badges-block"><h2 class="h2">Badges</h2>' +
-      (badges.length ? '<ul class="badges">' + badges.map(function (b) { return '<li class="badge">' + esc(b) + '</li>'; }).join('') + '</ul>' : '<p class="muted">Complete lessons, show readiness, and try the final challenge to earn badges.</p>') + '</section>';
+    var unlocked = badges.filter(function (b) { return b.unlocked; }).length;
+    return '<section class="block badges-block"><div class="badges-head"><h2 class="h2">Badges</h2><span class="eyebrow">' + unlocked + ' of ' + badges.length + ' unlocked</span></div>' +
+      '<ul class="badges">' + badges.map(function (b) {
+        return '<li class="badge-card ' + (b.unlocked ? 'is-earned' : 'is-locked') + '" aria-label="' + esc(b.name + (b.unlocked ? ', unlocked' : ', locked. ' + b.detail)) + '">' +
+          '<span class="badge-medal" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false">' + b.icon + '</svg></span>' +
+          '<span class="badge-copy"><strong>' + esc(b.name) + '</strong><span>' + (b.unlocked ? 'Unlocked' : esc(b.detail)) + '</span></span>' +
+        '</li>';
+      }).join('') + '</ul></section>';
   }
 
   function startHeroTree() {
