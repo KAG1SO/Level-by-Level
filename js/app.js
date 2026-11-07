@@ -14,7 +14,7 @@
   function loadState() {
     try { return JSON.parse(global.localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
-  var state = Object.assign({ done: {}, mastery: {}, lastQuiz: null, seen: {}, theme: null }, loadState());
+  var state = Object.assign({ done: {}, mastery: {}, lastQuiz: null, firstQuiz: null, latestFullQuiz: null, challengeDone: false, challengeReflection: '', seen: {}, theme: null }, loadState());
   function save() {
     try { global.localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage blocked: progress lasts for this visit only */ }
   }
@@ -111,30 +111,54 @@
   function mountCheck(host, q, idx) {
     var name = 'check-' + idx;
     var order = shuffle(q.options.map(function (_, i) { return i; }));
+    var tries = 0, finished = false;
     host.innerHTML =
       '<div class="check">' +
         '<span class="eyebrow">Check yourself</span>' +
         '<p class="q-prompt">' + esc(q.prompt) + '</p>' +
         (questionVisual(q) ? '<div class="tree-host" data-role="tree"></div>' : '') +
         optionsHTML(name, q, order) +
-        '<div class="feedback" data-role="fb" aria-live="polite" hidden></div>' +
-        '<div class="btn-row"><button type="button" class="btn" data-role="go">Check answer</button></div>' +
+      '<div class="feedback" data-role="fb" aria-live="polite" hidden></div>' +
+      '<div class="btn-row"><button type="button" class="btn" data-role="go">Check answer</button></div>' +
       '</div>';
     var root = questionVisual(q);
     if (root) T.render(host.querySelector('[data-role=tree]'), root);
     var fb = host.querySelector('[data-role=fb]');
-    host.querySelector('[data-role=go]').addEventListener('click', function () {
+    var go = host.querySelector('[data-role=go]');
+    go.addEventListener('click', function () {
+      if (finished) return;
       var picked = host.querySelector('input[name="' + name + '"]:checked');
       if (!picked) { fb.hidden = false; fb.className = 'feedback is-neutral'; fb.textContent = 'Choose an answer first.'; return; }
       var right = Number(picked.value) === q.answer;
+      if (right) {
+        host.querySelectorAll('.opt').forEach(function (o) {
+          var oi = Number(o.getAttribute('data-oi'));
+          o.classList.toggle('is-right', oi === q.answer);
+          o.querySelector('input').disabled = true;
+        });
+        finished = true; go.disabled = true;
+        fb.hidden = false; fb.className = 'feedback is-good';
+        fb.innerHTML = '<strong>' + (tries ? 'Correct on the second try.' : 'Correct.') + '</strong> ' + esc(q.explain);
+        return;
+      }
+      var wrong = picked.closest('.opt');
+      wrong.classList.add('is-wrong');
+      picked.disabled = true; picked.checked = false;
+      if (tries === 0) {
+        tries = 1;
+        fb.hidden = false; fb.className = 'feedback is-hint';
+        fb.innerHTML = '<strong>Not quite. Here is a hint.</strong> ' + esc(q.hint || 'Review the key idea in this lesson and try a different answer.') + ' Try again.';
+        go.textContent = 'Try again';
+        return;
+      }
       host.querySelectorAll('.opt').forEach(function (o) {
         var oi = Number(o.getAttribute('data-oi'));
-        o.classList.toggle('is-right', oi === q.answer);
-        o.classList.toggle('is-wrong', oi === Number(picked.value) && !right);
+        if (oi === q.answer) o.classList.add('is-right');
+        o.querySelector('input').disabled = true;
       });
-      fb.hidden = false;
-      fb.className = 'feedback ' + (right ? 'is-good' : 'is-bad');
-      fb.innerHTML = '<strong>' + (right ? 'Correct.' : 'Not quite.') + '</strong> ' + esc(q.explain);
+      finished = true; go.disabled = true;
+      fb.hidden = false; fb.className = 'feedback is-bad';
+      fb.innerHTML = '<strong>The answer is: ' + esc(q.options[q.answer]) + '.</strong> ' + esc(q.explain);
     });
   }
 
@@ -151,7 +175,7 @@
           '<p class="lede">Five short lessons take you from "what is a tree?" to tracing breadth-first search with a queue. No prior knowledge needed. Then a quiz shows what you have mastered and points you to what to review before class.</p>' +
           '<div class="btn-row">' +
             '<a class="btn btn-primary" href="#' + (next ? next.id : 'quiz') + '">' + (next && next.id !== 'trees' ? 'Continue: ' + esc(next.title) : (next ? 'Start from scratch' : 'Take the quiz')) + '</a>' +
-            '<a class="btn" href="#quiz">I know some of this. Test me first</a>' +
+            '<a class="btn" href="#quiz">Take the pre-test first</a>' +
           '</div>' +
         '</div>' +
         '<figure class="hero-tree"><div class="tree-host" id="hero-tree"></div>' +
@@ -173,6 +197,7 @@
             '<span class="path-meta">' + (state.done[l.id] ? 'Done' : l.minutes + ' min') + '</span></a></li>';
         }).join('') +
           '<li><a class="path-item path-quiz' + (state.lastQuiz ? ' is-done' : '') + '" href="#quiz"><span class="path-num">✓</span><span class="path-title">Readiness quiz</span><span class="path-meta">' + (state.lastQuiz ? 'Taken' : '12 questions') + '</span></a></li>' +
+          '<li><a class="path-item' + (state.challengeDone ? ' is-done' : '') + '" href="#challenge"><span class="path-num">★</span><span class="path-title">Optional final challenge</span><span class="path-meta">' + (state.challengeDone ? 'Completed' : 'Untimed') + '</span></a></li>' +
         '</ol>' +
       '</section>' +
       '<section class="block">' +
@@ -180,8 +205,23 @@
         '<ol class="objectives">' + conceptOrder.map(function (k) {
           return '<li><span class="obj-tag">' + esc(concepts[k].label) + '</span>' + esc(concepts[k].objective) + '</li>';
         }).join('') + '</ol>' +
-      '</section>';
+      '</section>' + badgesHTML();
     startHeroTree();
+  }
+
+  function badgeList() {
+    var allLessons = lessons.every(function (l) { return !!state.done[l.id]; });
+    var allReady = conceptOrder.every(function (k) { return state.mastery[k] && state.mastery[k].status === 'ready'; });
+    var badges = [];
+    if (allLessons) badges.push('Finished all lessons');
+    if (allReady) badges.push('Ready on every objective');
+    if (state.challengeDone) badges.push('Completed the final challenge');
+    return badges;
+  }
+  function badgesHTML() {
+    var badges = badgeList();
+    return '<section class="block badges-block"><h2 class="h2">Badges</h2>' +
+      (badges.length ? '<ul class="badges">' + badges.map(function (b) { return '<li class="badge">' + esc(b) + '</li>'; }).join('') + '</ul>' : '<p class="muted">Complete lessons, show readiness, and try the final challenge to earn badges.</p>') + '</section>';
   }
 
   function startHeroTree() {
@@ -313,20 +353,21 @@
       '<section class="quiz-intro">' +
         '<span class="eyebrow">Readiness quiz</span>' +
         '<h1 class="display display-sm" tabindex="-1">See what you have <em>mastered.</em></h1>' +
-        '<p class="lede">12 questions, two for each learning objective. It takes about 10 minutes.</p>' +
+        '<p class="lede">12 questions, two for each learning objective. It takes about 10 minutes. This is a quick readiness check based on two questions per objective.</p>' +
         '<ul class="how">' +
           '<li><strong>Wrong first try?</strong> You get a hint and a second chance.</li>' +
           '<li><strong>Wrong again?</strong> You see the answer, why it is right, and which lesson covers it.</li>' +
           '<li><strong>At the end</strong> you get a review plan for anything you have not mastered yet.</li>' +
         '</ul>' +
         '<div class="btn-row">' +
-          '<button type="button" class="btn btn-primary" id="quiz-start">Start the quiz</button>' +
+          '<button type="button" class="btn btn-primary" id="quiz-start">' + (state.firstQuiz ? 'Start the quiz' : 'Start pre-test') + '</button>' +
+          '<a class="btn btn-quiet" href="#challenge">Optional final challenge</a>' +
           (weak.length ? '<button type="button" class="btn" id="quiz-weak">Practise my weak spots (' + weak.length + ')</button>' : '') +
           (session && !session.finished && session.i > 0 ? '<button type="button" class="btn btn-quiet" id="quiz-resume">Resume question ' + (session.i + 1) + '</button>' : '') +
         '</div>' +
       '</section>';
     document.getElementById('quiz-start').addEventListener('click', function () {
-      session = buildSession(conceptOrder, 2, 'full'); renderQuestion();
+      session = buildSession(conceptOrder, 2, state.firstQuiz ? 'full' : 'pretest'); renderQuestion();
     });
     var wb = document.getElementById('quiz-weak');
     if (wb) wb.addEventListener('click', function () { session = buildSession(weak, 3, 'practice'); renderQuestion(); });
@@ -434,7 +475,12 @@
     });
     var earned = 0, max = 0;
     Object.keys(by).forEach(function (c) { earned += by[c].earned; max += by[c].max; });
-    state.lastQuiz = { mode: session.mode, earned: earned, max: max, by: by, at: new Date().toISOString() };
+    var result = { mode: session.mode, earned: earned, max: max, by: by, at: new Date().toISOString() };
+    state.lastQuiz = result;
+    if (session.mode === 'pretest' || session.mode === 'full') {
+      if (!state.firstQuiz) state.firstQuiz = JSON.parse(JSON.stringify(result));
+      state.latestFullQuiz = JSON.parse(JSON.stringify(result));
+    }
     session.finished = true;
     save();
     location.hash = 'results';
@@ -453,9 +499,10 @@
     function fmt(n) { return (Math.round(n * 10) / 10).toString(); }
     app.innerHTML =
       '<section class="results">' +
-        '<span class="eyebrow">' + (lq.mode === 'practice' ? 'Practice result' : 'Quiz result') + ' · ' + fmt(lq.earned) + ' of ' + lq.max + ' points</span>' +
+        '<span class="eyebrow">' + (lq.mode === 'practice' ? 'Practice result' : lq.mode === 'pretest' ? 'Pre-test result' : 'Quiz result') + ' · ' + fmt(lq.earned) + ' of ' + lq.max + ' points</span>' +
         '<h1 class="display display-sm" tabindex="-1">' + head + '</h1>' +
-        '<p class="lede">A first-try answer earns 1 point. An answer after a hint earns half a point. An objective counts as ready at 75% or more.</p>' +
+          '<p class="lede">A first-try answer earns 1 point. An answer after a hint earns half a point. An objective counts as ready at 75% or more. This is a quick readiness check based on two questions per objective.</p>' +
+          quizComparisonHTML(fmt) +
         '<div class="mastery">' + conceptOrder.map(function (k) {
           var m = state.mastery[k];
           var pct = m ? m.earned / m.max * 100 : 0;
@@ -475,12 +522,40 @@
         '<div class="btn-row">' +
           (weak.length ? '<button type="button" class="btn btn-primary" id="r-weak">Practise my weak spots</button>' : '') +
           '<button type="button" class="btn' + (weak.length ? '' : ' btn-primary') + '" id="r-full">Retake the full quiz</button>' +
+          '<a class="btn" href="#challenge">Try the optional final challenge</a>' +
           '<a class="btn btn-quiet" href="#home">Back to overview</a>' +
-        '</div>' +
+        '</div>' + badgesHTML() +
       '</section>';
     var w = document.getElementById('r-weak');
     if (w) w.addEventListener('click', function () { session = buildSession(weak, 3, 'practice'); location.hash = 'quiz'; renderQuestion(); });
     document.getElementById('r-full').addEventListener('click', function () { session = buildSession(conceptOrder, 2, 'full'); location.hash = 'quiz'; renderQuestion(); });
+  }
+
+  function quizComparisonHTML(fmt) {
+    var first = state.firstQuiz, latest = state.latestFullQuiz;
+    if (!first || !latest) return '<p class="muted">Take a full quiz to start your pre-test vs latest comparison.</p>';
+    return '<section class="comparison"><h2 class="h2">Pre-test vs latest quiz by objective</h2>' +
+      '<div class="comparison-scroll"><table class="comparison-table"><thead><tr><th scope="col">Learning objective</th><th scope="col">Pre-test</th><th scope="col">Latest</th></tr></thead><tbody>' +
+      conceptOrder.map(function (k) {
+        var a = first.by[k], b = latest.by[k];
+        return '<tr><th scope="row">' + esc(concepts[k].label) + '</th><td>' + (a ? fmt(a.earned) + '/' + a.max : '—') + '</td><td>' + (b ? fmt(b.earned) + '/' + b.max : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div></section>';
+  }
+
+  function renderChallenge() {
+    app.innerHTML =
+      '<section class="challenge-page">' +
+        '<span class="eyebrow">Optional final challenge · untimed</span>' +
+        '<h1 class="display display-sm" tabindex="-1">Build a BST, then traverse it.</h1>' +
+        '<p class="lede">Insert each value by choosing an empty child spot. Then trace BFS by clicking the nodes from the front of the queue. The challenge is for practice and is not graded.</p>' +
+        '<div class="widget"><div class="widget-body" data-challenge></div></div>' +
+        '<div class="btn-row"><a class="btn btn-quiet" href="#results">Back to results</a><a class="btn btn-quiet" href="#home">Overview</a></div>' +
+      '</section>';
+    W.finalChallenge(app.querySelector('[data-challenge]'), {
+      reflection: state.challengeReflection,
+      onReflection: function (value) { state.challengeReflection = value; save(); },
+      onDone: function (value) { state.challengeReflection = value; state.challengeDone = true; save(); }
+    });
   }
 
   /* ---------- Router ---------- */
@@ -501,8 +576,9 @@
       else renderQuizIntro();
     }
     else if (r === 'results') renderResults();
+    else if (r === 'challenge') renderChallenge();
     else { r = 'home'; renderHome(); }
-    updateHeader(r === 'results' ? 'quiz' : (lessonById(r) ? 'learn' : r));
+    updateHeader(r === 'results' || r === 'challenge' ? 'quiz' : (lessonById(r) ? 'learn' : r));
     global.scrollTo(0, 0);
     focusHeading();
   }

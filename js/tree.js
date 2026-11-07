@@ -45,6 +45,39 @@
     return { path: path, found: null, lastSide: lastSide };
   }
 
+  /* Empty child positions are exactly the possible next insertion locations in a BST. */
+  function insertionSpots(root) {
+    var out = [];
+    if (!root) return [{ parent: null, side: 'root' }];
+    (function walk(n) {
+      if (!n.left) out.push({ parent: n.value, side: 'left' }); else walk(n.left);
+      if (!n.right) out.push({ parent: n.value, side: 'right' }); else walk(n.right);
+    })(root);
+    return out;
+  }
+
+  function insertionTarget(root, value) {
+    var result = search(root, value);
+    if (result.found) return { duplicate: true, path: result.path.map(function (n) { return n.value; }) };
+    return {
+      duplicate: false,
+      path: result.path.map(function (n) { return n.value; }),
+      parent: result.path.length ? result.path[result.path.length - 1].value : null,
+      side: result.path.length ? result.lastSide : 'root'
+    };
+  }
+
+  function insertAt(root, value, parentValue, side) {
+    var target = insertionTarget(root, value);
+    if (target.duplicate) return { root: root, inserted: false, duplicate: true, target: target };
+    if (target.parent !== parentValue || target.side !== side) {
+      return { root: root, inserted: false, duplicate: false, target: target };
+    }
+    if (side === 'root') root = makeNode(value);
+    else find(root, parentValue)[side] = makeNode(value);
+    return { root: root, inserted: true, duplicate: false, target: target };
+  }
+
   function build(values) {
     var root = null;
     values.forEach(function (v) { root = insert(root, v).root; });
@@ -203,29 +236,46 @@
    * opts.states   : { value: 'path' | 'current' | 'found' | 'visited' | 'queued' | 'bad' | 'new' | 'selected' }
    * opts.onNode   : function(value) - makes nodes clickable
    * opts.label    : accessible description of the whole tree
-   * opts.ghost    : { parent: value, side: 'left'|'right' } - dashed empty spot
+   * opts.ghosts   : [{ parent: value|null, side: 'left'|'right'|'root' }] - clickable dashed empty spots
+   * opts.onGhost  : function(parent, side) - handles a selected empty spot
+   * opts.ghostRoot: true - show a clickable root spot for an empty tree
    */
   function render(host, root, opts) {
     opts = opts || {};
     var states = opts.states || {};
-    if (!root) {
+    var ghosts = opts.ghosts || (opts.ghost ? [opts.ghost] : []);
+    if (!root && opts.ghostRoot) ghosts = [{ parent: null, side: 'root' }];
+    if (!root && !ghosts.length) {
       host.innerHTML = '<div class="tree-empty">The tree is empty. Insert a value to create the root.</div>';
+      return;
+    }
+    if (!root) {
+      var rootGhost = ghosts[0];
+      var rgx = 120, rgy = 42;
+      var rootClickable = typeof opts.onGhost === 'function';
+      host.innerHTML = '<svg class="tree-svg" viewBox="0 0 240 90" width="240" role="group" aria-label="Empty tree. Choose the dashed root spot to insert the first value.">' +
+        '<g class="tnode is-ghost' + (rootClickable ? ' is-clickable' : '') + '"' + (rootClickable ? ' tabindex="0" role="button" aria-label="Insert at the root"' : '') + '><circle cx="' + rgx + '" cy="' + rgy + '" r="' + R + '"/><text x="' + rgx + '" y="' + (rgy + .5) + '">?</text></g></svg>';
+      if (rootClickable) {
+        var rootEl = host.querySelector('.tnode.is-clickable');
+        rootEl.addEventListener('click', function () { opts.onGhost(null, 'root'); });
+        rootEl.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); opts.onGhost(null, 'root'); } });
+      }
       return;
     }
     var L = layout(root);
     var width = Math.max(240, PAD * 2 + R * 2 + (L.count - 1) * GAP_X);
-    var height = PAD * 2 + R * 2 - 12 + L.depth * GAP_Y + (opts.ghost ? GAP_Y * 0.0 : 0);
-    var ghostPos = null;
-    if (opts.ghost) {
-      var gp = find(root, opts.ghost.parent);
-      if (gp) {
-        var p = L.pos.get(gp);
-        ghostPos = { x: p.x + (opts.ghost.side === 'left' ? -GAP_X * 0.6 : GAP_X * 0.6), y: p.y + GAP_Y, px: p.x, py: p.y };
-        width = Math.max(width, ghostPos.x + R + PAD);
-        if (ghostPos.x - R < 0) { ghostPos.x = R + 4; }
-        height = Math.max(height, ghostPos.y + R + PAD - 6);
-      }
-    }
+    var height = PAD * 2 + R * 2 - 12 + L.depth * GAP_Y;
+    var ghostPositions = ghosts.map(function (spot) {
+      var gp = find(root, spot.parent);
+      if (!gp) return null;
+      var p = L.pos.get(gp);
+      var gx = p.x + (spot.side === 'left' ? -GAP_X * 0.72 : GAP_X * 0.72);
+      var gy = p.y + GAP_Y;
+      width = Math.max(width, gx + R + PAD);
+      if (gx - R < 0) gx = R + 4;
+      height = Math.max(height, gy + R + PAD - 6);
+      return { x: gx, y: gy, px: p.x, py: p.y, parent: spot.parent, side: spot.side };
+    }).filter(Boolean);
     var edges = [], nodes = [];
     L.pos.forEach(function (p, n) {
       [n.left, n.right].forEach(function (c) {
@@ -245,13 +295,16 @@
         '<text x="' + p.x + '" y="' + (p.y + 0.5) + '">' + esc(n.value) + '</text></g>'
       );
     });
-    if (ghostPos) {
-      edges.push('<line class="tedge is-ghost" x1="' + ghostPos.px + '" y1="' + ghostPos.py + '" x2="' + ghostPos.x + '" y2="' + ghostPos.y + '"/>');
-      nodes.push('<g class="tnode is-ghost"><circle cx="' + ghostPos.x + '" cy="' + ghostPos.y + '" r="' + R + '"/><text x="' + ghostPos.x + '" y="' + (ghostPos.y + 0.5) + '">?</text></g>');
-    }
+    ghostPositions.forEach(function (g) {
+      var clickableGhost = typeof opts.onGhost === 'function';
+      var label = g.parent + ' ' + g.side + ' child empty spot';
+      edges.push('<line class="tedge is-ghost" x1="' + g.px + '" y1="' + g.py + '" x2="' + g.x + '" y2="' + g.y + '"/>');
+      nodes.push('<g class="tnode is-ghost' + (clickableGhost ? ' is-clickable' : '') + '" data-parent="' + esc(g.parent) + '" data-side="' + esc(g.side) + '"' +
+        (clickableGhost ? ' tabindex="0" role="button" aria-label="Empty ' + esc(label) + '"' : '') + '><circle cx="' + g.x + '" cy="' + g.y + '" r="' + R + '"/><text x="' + g.x + '" y="' + (g.y + 0.5) + '">?</text></g>');
+    });
     var aria = opts.label || ('Binary tree with ' + L.count + ' nodes. Level order: ' + levelOrder(root).join(', ') + '.');
     host.innerHTML =
-      '<svg class="tree-svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" role="img" aria-label="' + esc(aria) + '">' +
+      '<svg class="tree-svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" role="' + (typeof opts.onGhost === 'function' || typeof opts.onNode === 'function' ? 'group' : 'img') + '" aria-label="' + esc(aria) + '">' +
       edges.join('') + nodes.join('') + '</svg>';
     if (typeof opts.onNode === 'function') {
       host.querySelectorAll('.tnode.is-clickable').forEach(function (g) {
@@ -263,6 +316,16 @@
         });
       });
     }
+    if (typeof opts.onGhost === 'function') {
+      host.querySelectorAll('.tnode.is-ghost.is-clickable').forEach(function (g) {
+        var p = g.getAttribute('data-parent');
+        var parent = p === 'null' ? null : (isNaN(Number(p)) ? p : Number(p));
+        var side = g.getAttribute('data-side');
+        var choose = function () { opts.onGhost(parent, side); };
+        g.addEventListener('click', choose);
+        g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } });
+      });
+    }
   }
 
   var api = {
@@ -270,6 +333,7 @@
     levelOrder: levelOrder, inorder: inorder, preorder: preorder, levels: levels,
     rightToLeftLevels: rightToLeftLevels, height: height, size: size, find: find,
     parentOf: parentOf, depthOf: depthOf, firstViolation: firstViolation, bfsSteps: bfsSteps,
+    insertionSpots: insertionSpots, insertionTarget: insertionTarget, insertAt: insertAt,
     layout: layout, render: render
   };
 

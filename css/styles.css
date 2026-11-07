@@ -219,6 +219,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tnode.is-bad circle { fill: var(--bad); stroke: var(--bad); }
 .tnode.is-bad text { fill: var(--bg); }
 .tnode.is-ghost circle { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; }
+.tnode.is-ghost.is-clickable circle { stroke: var(--accent); stroke-width: 2; }
+.tnode.is-ghost.is-clickable:hover circle, .tnode.is-ghost.is-clickable:focus-visible circle { fill: var(--accent-bg); stroke-width: 3; }
 .tree-empty { padding: 40px 16px; color: var(--muted); text-align: center; }
 
 /* ---------- Lesson layout ---------- */
@@ -371,6 +373,29 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .dot.is-current { background: var(--accent); border-color: var(--accent); }
 .dot.is-queued { background: var(--info-bg); border-color: var(--info); border-style: dashed; }
 .dot.is-visited { background: var(--good-bg); border-color: var(--good); }
+.bfs-try, .final-challenge { display: flex; flex-direction: column; gap: 16px; }
+.bfs-try .tree-host, .final-challenge .tree-host { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.challenge-feedback { margin: 0; }
+.value-sequence { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.value-chip { display: inline-grid; place-items: center; min-width: 36px; min-height: 34px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font: 500 .82rem/1 var(--f-mono); }
+.value-chip.is-current { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.value-chip.is-done { border-color: var(--good); background: var(--good-bg); color: var(--good); }
+.challenge-reflection { display: flex; flex-direction: column; gap: 12px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.challenge-reflection label { line-height: 1.4; }
+.challenge-reflection textarea { width: 100%; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 12px; color: var(--fg); background: var(--bg); font: inherit; }
+.challenge-reflection textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.badges-block .muted { margin: 0; color: var(--muted); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.badge { padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 999px; background: var(--accent-bg); color: var(--fg); font-size: .85rem; font-weight: 600; }
+.comparison { display: flex; flex-direction: column; gap: 12px; }
+.comparison-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.comparison-table { width: 100%; min-width: 480px; border-collapse: collapse; background: var(--surface); }
+.comparison-table th, .comparison-table td { padding: 11px 14px; border-bottom: 1px solid var(--line); text-align: left; }
+.comparison-table thead th { background: var(--surface-2); font-size: .8rem; }
+.comparison-table tbody th { font-weight: 600; }
+.comparison-table td { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.comparison-table tr:last-child > * { border-bottom: 0; }
+.challenge-page { display: flex; flex-direction: column; gap: 20px; width: 100%; }
 
 /* ---------- Checks and quiz ---------- */
 .check { display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 18px; border: 1px solid var(--line); background: var(--surface); }
@@ -463,6 +488,8 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
   .rule-card { grid-template-columns: 1fr; }
   .rule-node { justify-self: center; }
   .lesson-foot .btn { width: 100%; justify-content: center; }
+  .bfs-try .tree-svg, .final-challenge .tree-svg { max-width: none; flex: none; }
+  .bfs-try .tree-host, .final-challenge .tree-host { justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }

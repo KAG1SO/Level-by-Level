@@ -440,12 +440,182 @@
     return stop;
   }
 
+  /* ---------- 6. BFS retrieval practice ---------- */
+  function bfsTry(host) {
+    var trees = global.Content.bfsPracticeTrees;
+    var treeIndex = -1, values, root, steps, visit = 0, visited = [];
+    host.innerHTML =
+      '<div class="bfs-try">' +
+        '<div class="tree-host" data-role="tree"></div>' +
+        '<p class="bfs-note" data-role="note" aria-live="polite">Choose the node at the front of the queue.</p>' +
+        '<div class="bfs-panel"><span class="eyebrow">Queue · front → back</span><div class="chip-row" data-role="queue"></div></div>' +
+        '<div class="bfs-panel"><span class="eyebrow">Visited, in order</span><div class="chip-row" data-role="visited"></div></div>' +
+        '<div class="btn-row"><button type="button" class="btn btn-quiet" data-op="new-tree">New tree</button></div>' +
+      '</div>';
+    var treeEl = host.querySelector('[data-role=tree]');
+    var note = host.querySelector('[data-role=note]');
+    var queueEl = host.querySelector('[data-role=queue]');
+    var visitedEl = host.querySelector('[data-role=visited]');
+    function chips(arr, cls, empty) {
+      return arr.length ? arr.map(function (v) { return '<span class="chip ' + cls + '">' + esc(v) + '</span>'; }).join('') : '<span class="chip-empty">' + empty + '</span>';
+    }
+    function draw(focusValue) {
+      var queue = steps[visit].queue;
+      var expected = visit < steps.length - 2 ? steps[visit + 1].current : null;
+      var states = {};
+      visited.forEach(function (v) { states[v] = 'visited'; });
+      queue.forEach(function (v) { if (!states[v]) states[v] = 'queued'; });
+      T.render(treeEl, root, { states: states, onNode: choose, label: 'Click each node in breadth-first order. ' + (expected === null ? 'The traversal is complete.' : 'The front of the queue is ' + expected + '.') });
+      queueEl.innerHTML = chips(queue, 'chip-q', 'empty');
+      visitedEl.innerHTML = chips(visited, 'chip-v', 'nothing yet');
+      if (focusValue !== undefined) {
+        var nodeEl = treeEl.querySelector('.tnode[data-v="' + focusValue + '"]');
+        if (nodeEl) nodeEl.focus();
+      }
+    }
+    function choose(value) {
+      if (visit >= steps.length - 2) return;
+      var expected = steps[visit + 1].current;
+      if (value !== expected) {
+        note.textContent = 'Not yet. ' + expected + ' should come next because it is at the front of the queue. Nodes discovered earlier stay ahead of newer children.';
+        draw(value);
+        return;
+      }
+      visited.push(value);
+      visit += 1;
+      if (visit >= steps.length - 2) {
+        note.textContent = 'That completes BFS. The queue is empty. Visit order: ' + visited.join(', ') + '.';
+      } else {
+        note.textContent = value + ' was at the front of the queue. Its children join at the back. Next is ' + steps[visit + 1].current + '.';
+      }
+      draw(visit < steps.length - 2 ? steps[visit + 1].current : value);
+    }
+    function newTree() {
+      var nextIndex = Math.floor(Math.random() * trees.length);
+      if (trees.length > 1 && nextIndex === treeIndex) nextIndex = (nextIndex + 1) % trees.length;
+      treeIndex = nextIndex; values = trees[treeIndex].slice(); root = T.build(values); steps = T.bfsSteps(root); visit = 0; visited = [];
+      note.textContent = 'New tree. Choose the node at the front of the queue.';
+      draw(steps[1].current);
+    }
+    host.querySelector('[data-op=new-tree]').addEventListener('click', function () { newTree(); });
+    newTree();
+  }
+
+  /* ---------- 7. Optional BST insertion + BFS challenge ---------- */
+  function finalChallenge(host, options) {
+    options = options || {};
+    var config = global.Content.challenge;
+    var values = config.values.slice(), root = null, phase = 'insert', index = 0, visited = [], steps = [], visit = 0;
+    host.innerHTML =
+      '<div class="final-challenge">' +
+        '<p class="eyebrow" data-role="progress">Insertion phase</p>' +
+        '<div class="value-sequence" data-role="sequence" aria-label="Values to insert"></div>' +
+        '<div class="tree-host tree-host-lg" data-role="tree"></div>' +
+        '<p class="feedback is-neutral challenge-feedback" data-role="feedback" aria-live="polite"></p>' +
+        '<div class="challenge-reflection" data-role="reflection" hidden>' +
+          '<label for="challenge-reflection"><strong>' + esc(config.reflectionPrompt) + '</strong></label>' +
+          '<textarea id="challenge-reflection" rows="4" data-role="reflection-input"></textarea>' +
+          '<p class="muted">This reflection is for your own thinking and is not graded.</p>' +
+          '<button type="button" class="btn btn-primary" data-op="finish">Finish challenge</button>' +
+        '</div>' +
+      '</div>';
+    var treeEl = host.querySelector('[data-role=tree]');
+    var progressEl = host.querySelector('[data-role=progress]');
+    var sequenceEl = host.querySelector('[data-role=sequence]');
+    var feedback = host.querySelector('[data-role=feedback]');
+    var reflection = host.querySelector('[data-role=reflection]');
+    var reflectionInput = host.querySelector('[data-role=reflection-input]');
+    var completed = false;
+    reflectionInput.value = options.reflection || '';
+    reflectionInput.addEventListener('input', function () { if (options.onReflection) options.onReflection(reflectionInput.value); });
+
+    function draw(focusTarget) {
+      if (phase === 'insert') {
+        progressEl.textContent = 'Insert value ' + Math.min(index + 1, values.length) + ' of ' + values.length;
+        sequenceEl.innerHTML = values.map(function (v, i) { return '<span class="value-chip' + (i < index ? ' is-done' : i === index ? ' is-current' : '') + '">' + esc(v) + '</span>'; }).join('');
+        var ghosts = T.insertionSpots(root);
+        T.render(treeEl, root, {
+          ghosts: ghosts, ghostRoot: !root,
+          label: root ? 'Binary search tree. Choose the empty child position where value ' + values[index] + ' belongs.' : 'Empty tree. Choose the root position for value ' + values[index] + '.',
+          onGhost: function (parent, side) { chooseSpot(parent, side); }
+        });
+      } else {
+        var expected = visit < steps.length - 2 ? steps[visit + 1].current : null;
+        progressEl.textContent = 'BFS phase · node ' + Math.min(visit + 1, values.length) + ' of ' + values.length;
+        sequenceEl.innerHTML = '<span class="eyebrow">Insertion order: </span>' + values.map(function (v) { return '<span class="value-chip' + (visited.indexOf(v) !== -1 ? ' is-done' : '') + '">' + esc(v) + '</span>'; }).join('');
+        var states = {};
+        visited.forEach(function (v) { states[v] = 'visited'; });
+        if (expected !== null) states[expected] = 'queued';
+        T.render(treeEl, root, {
+          states: states,
+          label: 'Click nodes in breadth-first order. ' + (expected === null ? 'The traversal is complete.' : 'The front of the queue is ' + expected + '.'),
+          onNode: chooseBfs
+        });
+        if (visit >= steps.length - 2) reflection.hidden = false;
+      }
+      if (focusTarget) {
+        var target = treeEl.querySelector(focusTarget);
+        if (target) target.focus();
+      }
+    }
+    function chooseSpot(parent, side) {
+      if (phase !== 'insert' || index >= values.length) return;
+      var value = values[index];
+      var expected = T.insertionTarget(root, value);
+      var result = T.insertAt(root, value, parent, side);
+      if (!result.inserted) {
+        var comparisons = expected.path.map(function (n) { return value + (value < n ? ' < ' : value > n ? ' > ' : ' = ') + n + (value < n ? ' → go left' : value > n ? ' → go right' : ' (already present)'); });
+        feedback.className = 'feedback is-hint challenge-feedback';
+        feedback.textContent = (comparisons.length ? 'Comparison path: ' + comparisons.join('; ') + '. ' : '') +
+          (expected.duplicate ? 'That value is already in the tree.' : 'It belongs at the empty ' + expected.side + ' child of ' + expected.parent + '. Try that dashed spot.');
+        draw(side === 'root' ? '.tnode.is-clickable[aria-label="Insert at the root"]' : '.tnode.is-ghost.is-clickable[data-parent="' + parent + '"][data-side="' + side + '"]');
+        return;
+      }
+      root = result.root; index += 1;
+      feedback.className = 'feedback is-good challenge-feedback';
+      feedback.textContent = value + (side === 'root' ? ' becomes the root.' : ' goes in the empty ' + side + ' child of ' + parent + '.');
+      if (index === values.length) {
+        phase = 'bfs'; steps = T.bfsSteps(root); visit = 0; visited = [];
+        feedback.textContent += ' The tree is complete. Now click its nodes in BFS order.';
+        draw('.tnode.is-clickable[data-v="' + steps[1].current + '"]');
+      } else {
+        draw('.tnode.is-ghost.is-clickable');
+      }
+    }
+    function chooseBfs(value) {
+      if (phase !== 'bfs' || visit >= steps.length - 2) return;
+      var expected = steps[visit + 1].current;
+      if (value !== expected) {
+        feedback.className = 'feedback is-hint challenge-feedback';
+        feedback.textContent = expected + ' should come next because it is at the front of the queue. Children of nodes you visit join at the back.';
+        draw('.tnode.is-clickable[data-v="' + value + '"]');
+        return;
+      }
+      visited.push(value); visit += 1;
+      feedback.className = 'feedback is-good challenge-feedback';
+      feedback.textContent = visit >= steps.length - 2 ? 'Correct. The queue is empty, so BFS is finished. Write your reflection below.' : 'Correct. ' + steps[visit + 1].current + ' is now at the front of the queue.';
+      draw(visit < steps.length - 2 ? '.tnode.is-clickable[data-v="' + steps[visit + 1].current + '"]' : '');
+      if (visit >= steps.length - 2) reflectionInput.focus();
+    }
+    host.querySelector('[data-op=finish]').addEventListener('click', function () {
+      if (visit < steps.length - 2 || completed) return;
+      completed = true;
+      feedback.className = 'feedback is-good challenge-feedback';
+      feedback.textContent = 'Final challenge completed. Your reflection is saved on this device.';
+      host.querySelector('[data-op=finish]').disabled = true;
+      if (options.onDone) options.onDone(reflectionInput.value);
+    });
+    draw();
+  }
+
   global.Widgets = {
     treeExplorer: treeExplorer,
     bstChecker: bstChecker,
     bstPlayground: bstPlayground,
     queuePlayground: queuePlayground,
     bfsStepper: bfsStepper,
+    bfsTry: bfsTry,
+    finalChallenge: finalChallenge,
     shared: shared
   };
 })(window);

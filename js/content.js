@@ -72,6 +72,7 @@
           tree: [50, 30, 70, 20, 40, 80],
           options: ['20, 40 and 80', '50 and 70', '30, 70 and 80', 'Only 80'],
           answer: 0,
+          hint: 'A leaf has no children. Check the nodes at the ends of the branches.',
           explain: 'A leaf has no children. 20, 40 and 80 have nothing below them. 70 is not a leaf because it has the child 80.'
         } },
         { type: 'takeaways', items: [
@@ -100,6 +101,7 @@
           prompt: 'The root of a valid BST is 50. Which value can NOT appear anywhere in its left subtree?',
           options: ['10', '49', '51', '25'],
           answer: 2,
+          hint: 'Every value anywhere in the left subtree must be smaller than 50.',
           explain: 'Everything in the left subtree of 50 must be smaller than 50. 51 is larger, so it must be in the right subtree.'
         } },
         { type: 'takeaways', items: [
@@ -133,6 +135,7 @@
         { type: 'widget', widget: 'bstPlayground', title: 'BST playground', hint: 'Try this: search for 60, then search for 45, then insert 45 and search for it again.' },
         { type: 'check', q: {
           prompt: 'You insert 45 into this BST. Where does it go?',
+          hint: 'Follow the comparisons one node at a time: compare with 50, then 30, then 40.',
           tree: [50, 30, 70, 20, 40],
           options: ['Right child of 40', 'Left child of 70', 'Right child of 30', 'Left child of 40'],
           answer: 0,
@@ -164,6 +167,7 @@
           prompt: 'Start with an empty queue. Enqueue 5, enqueue 8, enqueue 2, then dequeue once. Which value is now at the front?',
           options: ['5', '8', '2', 'The queue is empty'],
           answer: 1,
+          hint: 'A queue is first in, first out: the value that joined earliest leaves first.',
           explain: '5 joined first, so dequeue removes 5. That leaves 8 at the front and 2 behind it.'
         } },
         { type: 'takeaways', items: [
@@ -190,12 +194,14 @@
           '    if node.right: queue.enqueue(node.right)'
         ] },
         { type: 'widget', widget: 'bfsStepper', title: 'Step through BFS', hint: 'Before each step, say which node will leave the queue next.' },
+        { type: 'widget', widget: 'bfsTry', title: 'Now you try', hint: 'Click the nodes in BFS order. Use the queue front to decide who comes next.' },
         { type: 'prose', html:
           '<h3>Where BFS is used</h3>' +
           '<ul><li>Printing a tree one level per line.</li><li>Finding the node closest to the root that matches a condition.</li><li>Finding the shortest route, counted in edges, between two points in a network.</li></ul>' +
           '<p>BFS also works on general graphs, which you will meet later. Graphs can contain loops, so there you also keep track of nodes you have already seen. Trees have no loops, so this version can skip that.</p>' },
         { type: 'check', q: {
           prompt: 'In what order does BFS visit this tree?',
+          hint: 'Finish each level from left to right before moving down to the next level.',
           tree: [40, 20, 60, 10, 30, 50, 70],
           options: ['40, 20, 60, 10, 30, 50, 70', '40, 20, 10, 30, 60, 50, 70', '10, 20, 30, 40, 50, 60, 70', '40, 60, 20, 70, 50, 30, 10'],
           answer: 0,
@@ -210,6 +216,18 @@
     }
   ];
 
-  global.Content = { concepts: concepts, lessons: lessons };
+  global.Content = {
+    concepts: concepts,
+    lessons: lessons,
+    bfsPracticeTrees: [
+      [50, 30, 70, 20, 40, 60, 80],
+      [40, 20, 60, 10, 30, 70, 65],
+      [35, 18, 62, 9, 27, 50, 81, 55]
+    ],
+    challenge: {
+      values: [45, 25, 75, 15, 35, 65, 85],
+      reflectionPrompt: 'What surprised you about BFS order compared to the insertion order?'
+    }
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = global.Content;
 })(typeof window !== 'undefined' ? window : globalThis);

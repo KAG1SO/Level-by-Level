@@ -14,7 +14,9 @@ Built as the COS750 Educational Software Development prototype.
 | 3. Search and insert | Reads the algorithm and pseudocode, then searches and inserts in an animated BST playground. |
 | 4. Queues | Learns FIFO with an enqueue/dequeue playground. |
 | 5. Breadth-first search | Steps through BFS with the queue, visit order and pseudocode line highlighted at each step. |
+| Now you try | Clicks nodes in BFS order, with queue-front feedback and a fresh tree button. |
 | Readiness quiz | 12 questions, 2 per learning objective, with adaptive scaffolding and a review plan. |
+| Optional final challenge | Inserts seven values by choosing dashed BST positions, then traces BFS and writes an ungraded reflection. |
 
 Every lesson also has a "Check yourself" question with instant feedback, key points, and a **Listen** button that reads the lesson aloud (browser text-to-speech).
 
@@ -37,7 +39,11 @@ Each objective is a `concept` in `js/content.js`. Every quiz question is tagged 
 - **Wrong again:** the app shows the right answer, explains it, and links to the lesson that covers it.
 - **Results:** each objective is marked *Ready* (75%+), *Nearly there* (50%+) or *Review this*. Weak objectives get a review plan with a specific tip and a link to the lesson.
 - **Practise my weak spots:** a new quiz drawn only from weak objectives, preferring questions the student has not seen yet.
-- Students who already know some of the work can take the quiz first ("Test me first") and skip straight to what they need.
+- **Pre-test vs latest quiz:** the first full quiz is saved as a pre-test and compared with the latest full quiz for each objective.
+- **Quick readiness check:** quiz results are based on two questions per objective and are a guide for review, not a definitive measure of mastery.
+- Students who already know some of the work can take the pre-test first and skip straight to what they need.
+- Lesson checks give a targeted hint after the first wrong answer and reveal the correct answer after a second wrong answer.
+- Badges appear on the home and results pages for finishing all lessons, readiness across all objectives, and completing the final challenge.
 
 ## Run it
 
@@ -64,7 +70,7 @@ The tree logic and the question bank are tested with plain Node (no packages nee
 node tests/tree.test.js
 ```
 
-The tests check BST insert/search, BFS steps, the BST-rule checker, and every quiz question (valid concept, no duplicate options, answers that match the tree drawn).
+The tests check BST insert/search, valid insertion spots, BFS steps and challenge order, the BST-rule checker, and quiz/lesson questions (valid concepts, hints, no duplicate options, answers that match the tree drawn).
 
 ## Project structure
 
@@ -83,7 +89,7 @@ Content is separate from code: to change a lesson or add questions, edit `conten
 
 ## Accessibility
 
-- Dark and light themes (follows the device setting, with a toggle).
+- Light theme by default with a dark theme toggle.
 - Keyboard support throughout, including selecting tree nodes with Enter.
 - Animations respect the "reduce motion" setting.
 - Trees have text descriptions for screen readers. Feedback regions are announced with `aria-live`.

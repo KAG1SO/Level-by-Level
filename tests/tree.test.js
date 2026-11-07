@@ -22,6 +22,29 @@ const ins = T.insert(T.build([50, 30, 70, 20, 40]), 45);
 assert.strictEqual(ins.parent.value, 40); assert.strictEqual(ins.side, 'right');
 assert.strictEqual(T.insert(root, 50).duplicate, true);
 
+// Interactive challenge insertion targets and valid empty spots
+const challengeValues = C.challenge.values;
+assert.ok(challengeValues.length >= 6 && challengeValues.length <= 8);
+let challengeRoot = null;
+challengeValues.forEach(value => {
+  const target = T.insertionTarget(challengeRoot, value);
+  const spots = T.insertionSpots(challengeRoot);
+  assert.ok(spots.some(s => s.parent === target.parent && s.side === target.side), 'target is an available empty spot');
+  const inserted = T.insertAt(challengeRoot, value, target.parent, target.side);
+  assert.strictEqual(inserted.inserted, true);
+  challengeRoot = inserted.root;
+});
+assert.deepStrictEqual(T.inorder(challengeRoot), challengeValues.slice().sort((a, b) => a - b));
+const wrongTarget = T.insertionTarget(challengeRoot, 44);
+assert.strictEqual(T.insertAt(challengeRoot, 44, wrongTarget.parent, wrongTarget.side === 'left' ? 'right' : 'left').inserted, false);
+assert.strictEqual(T.insertAt(challengeRoot, challengeValues[0], null, 'root').duplicate, true);
+assert.deepStrictEqual(T.insertionSpots(null), [{ parent: null, side: 'root' }]);
+
+// The challenge traverses the tree it builds, level by level.
+assert.deepStrictEqual(T.levelOrder(challengeRoot), T.bfsSteps(challengeRoot).filter(s => s.kind === 'visit').map(s => s.current));
+assert.ok(C.bfsPracticeTrees.length >= 2);
+assert.ok(C.bfsPracticeTrees.every(values => values.length >= 6));
+
 // Question bank
 const conceptKeys = Object.keys(C.concepts);
 const per = {};
@@ -47,6 +70,7 @@ assert.strictEqual(T.firstViolation(T.fromSpec(byId.r1.spec)).value, 60);
 // In-lesson checks
 C.lessons.forEach(l => l.sections.filter(s => s.type === 'check').forEach(s => {
   assert.strictEqual(new Set(s.q.options).size, s.q.options.length, l.id + ' check duplicate options');
+  assert.ok(s.q.hint, l.id + ' check has a first-attempt hint');
 }));
 const bfsCheck = C.lessons.find(l => l.id === 'bfs').sections.find(s => s.type === 'check').q;
 assert.strictEqual(bfsCheck.options[bfsCheck.answer], T.levelOrder(T.build(bfsCheck.tree)).join(', '));
