@@ -15,6 +15,10 @@
     try { return JSON.parse(global.localStorage.getItem(KEY)) || {}; } catch (e) { return {}; }
   }
   var state = Object.assign({ done: {}, mastery: {}, lastQuiz: null, firstQuiz: null, latestFullQuiz: null, challengeDone: false, challengeReflection: '', seen: {}, theme: null }, loadState());
+  /* The first quiz only counts as a pre-test if the student hasn't started the lessons yet. */
+  function isPretest() {
+    return !state.firstQuiz && !lessons.some(function (l) { return state.done[l.id]; });
+  }
   function save() {
     try { global.localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage blocked: progress lasts for this visit only */ }
   }
@@ -175,7 +179,7 @@
           '<p class="lede">Five short lessons take you from "what is a tree?" to tracing breadth-first search with a queue. No prior knowledge needed. Then a quiz shows what you have mastered and points you to what to review before class.</p>' +
           '<div class="btn-row">' +
             '<a class="btn btn-primary" href="#' + (next ? next.id : 'quiz') + '">' + (next && next.id !== 'trees' ? 'Continue: ' + esc(next.title) : (next ? 'Start from scratch' : 'Take the quiz')) + '</a>' +
-            '<a class="btn" href="#quiz">Take the pre-test first</a>' +
+            (isPretest() ? '<a class="btn" href="#quiz">Take the pre-test first</a>' : (next ? '<a class="btn" href="#quiz">Take the quiz</a>' : '')) +
           '</div>' +
         '</div>' +
         '<figure class="hero-tree"><div class="tree-host" id="hero-tree"></div>' +
@@ -366,14 +370,14 @@
           '<li><strong>At the end</strong> you get a review plan for anything you have not mastered yet.</li>' +
         '</ul>' +
         '<div class="btn-row">' +
-          '<button type="button" class="btn btn-primary" id="quiz-start">' + (state.firstQuiz ? 'Start the quiz' : 'Start pre-test') + '</button>' +
+          '<button type="button" class="btn btn-primary" id="quiz-start">' + (isPretest() ? 'Start pre-test' : 'Start the quiz') + '</button>' +
           '<a class="btn btn-quiet" href="#challenge">Optional final challenge</a>' +
           (weak.length ? '<button type="button" class="btn" id="quiz-weak">Practise my weak spots (' + weak.length + ')</button>' : '') +
           (session && !session.finished && session.i > 0 ? '<button type="button" class="btn btn-quiet" id="quiz-resume">Resume question ' + (session.i + 1) + '</button>' : '') +
         '</div>' +
       '</section>';
     document.getElementById('quiz-start').addEventListener('click', function () {
-      session = buildSession(conceptOrder, 2, state.firstQuiz ? 'full' : 'pretest'); renderQuestion();
+      session = buildSession(conceptOrder, 2, isPretest() ? 'pretest' : 'full'); renderQuestion();
     });
     var wb = document.getElementById('quiz-weak');
     if (wb) wb.addEventListener('click', function () { session = buildSession(weak, 3, 'practice'); renderQuestion(); });
@@ -539,13 +543,20 @@
 
   function quizComparisonHTML(fmt) {
     var first = state.firstQuiz, latest = state.latestFullQuiz;
-    if (!first || !latest) return '<p class="muted">Take a full quiz to start your pre-test vs latest comparison.</p>';
-    return '<section class="comparison"><h2 class="h2">Pre-test vs latest quiz by objective</h2>' +
-      '<div class="comparison-scroll"><table class="comparison-table"><thead><tr><th scope="col">Learning objective</th><th scope="col">Pre-test</th><th scope="col">Latest</th></tr></thead><tbody>' +
+    if (!first || !latest) return '<p class="muted">Take a full quiz to start your progress comparison.</p>';
+    var firstLabel = first.mode === 'pretest' ? 'Pre-test' : 'First attempt';
+    if (first.at === latest.at) {
+      return '<p class="muted">This is your ' + firstLabel.toLowerCase() + '. Work through the lessons, then retake the quiz to see how much you have improved on each objective.</p>';
+    }
+    return '<section class="comparison"><h2 class="h2">' + firstLabel + ' vs latest quiz</h2>' +
+      '<div class="comparison-scroll"><table class="comparison-table"><thead><tr><th scope="col">Learning objective</th><th scope="col">' + firstLabel + '</th><th scope="col">Latest</th><th scope="col">Change</th></tr></thead><tbody>' +
       conceptOrder.map(function (k) {
         var a = first.by[k], b = latest.by[k];
-        return '<tr><th scope="row">' + esc(concepts[k].label) + '</th><td>' + (a ? fmt(a.earned) + '/' + a.max : '—') + '</td><td>' + (b ? fmt(b.earned) + '/' + b.max : '—') + '</td></tr>';
-      }).join('') + '</tbody></table></div></section>';
+        var change = a && b ? b.earned - a.earned : null;
+        var changeText = change === null ? '—' : change > 0 ? '+' + fmt(change) : change < 0 ? '−' + fmt(-change) : '0';
+        return '<tr><th scope="row">' + esc(concepts[k].label) + '</th><td>' + (a ? fmt(a.earned) + '/' + a.max : '—') + '</td><td>' + (b ? fmt(b.earned) + '/' + b.max : '—') + '</td><td>' + changeText + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<p class="muted">Total: ' + fmt(first.earned) + '/' + first.max + ' → ' + fmt(latest.earned) + '/' + latest.max + '.</p></section>';
   }
 
   function renderChallenge() {
@@ -589,6 +600,25 @@
     focusHeading();
   }
   global.addEventListener('hashchange', route);
+  /* Reset progress: two clicks, so nobody wipes their progress by accident. */
+  var resetBtn = document.getElementById('reset-progress'), resetTimer = null;
+  if (resetBtn) resetBtn.addEventListener('click', function () {
+    if (!resetBtn.classList.contains('is-armed')) {
+      resetBtn.classList.add('is-armed');
+      resetBtn.textContent = 'Click again to erase all progress';
+      resetTimer = setTimeout(function () { resetBtn.classList.remove('is-armed'); resetBtn.textContent = 'Reset my progress'; }, 4000);
+      return;
+    }
+    clearTimeout(resetTimer);
+    var theme = state.theme;
+    state = { done: {}, mastery: {}, lastQuiz: null, firstQuiz: null, latestFullQuiz: null, challengeDone: false, challengeReflection: '', seen: {}, theme: theme };
+    session = null;
+    save();
+    resetBtn.classList.remove('is-armed');
+    resetBtn.textContent = 'Progress erased';
+    setTimeout(function () { resetBtn.textContent = 'Reset my progress'; }, 2500);
+    if (location.hash === '#home' || !location.hash) route(); else location.hash = 'home';
+  });
   var skip = document.querySelector('.skip');
   if (skip) skip.addEventListener('click', function (e) { e.preventDefault(); focusHeading(); });
   route();

@@ -218,7 +218,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .tnode.is-queued circle { fill: var(--info-bg); stroke: var(--info); stroke-dasharray: 4 3; }
 .tnode.is-bad circle { fill: var(--bad); stroke: var(--bad); }
 .tnode.is-bad text { fill: var(--bg); }
-.tnode.is-ghost circle { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; }
+.tnode.is-ghost circle { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; pointer-events: all; }
+.reset-btn { font: inherit; color: var(--muted); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+.reset-btn:hover, .reset-btn.is-armed { color: var(--bad); }
 .tnode.is-ghost.is-clickable circle { stroke: var(--accent); stroke-width: 2; }
 .tnode.is-ghost.is-clickable:hover circle, .tnode.is-ghost.is-clickable:focus-visible circle { fill: var(--accent-bg); stroke-width: 3; }
 .tree-empty { padding: 40px 16px; color: var(--muted); text-align: center; }

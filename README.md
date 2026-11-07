@@ -16,7 +16,7 @@ Built as the COS750 Educational Software Development prototype.
 | 5. Breadth-first search | Steps through BFS with the queue, visit order and pseudocode line highlighted at each step. |
 | Now you try | Clicks nodes in BFS order, with queue-front feedback and a fresh tree button. |
 | Readiness quiz | 12 questions, 2 per learning objective, with adaptive scaffolding and a review plan. |
-| Optional final challenge | Inserts seven values by choosing dashed BST positions, then traces BFS and writes an ungraded reflection. |
+| Optional final challenge | Inserts eight values by choosing dashed BST positions, then traces BFS and writes an ungraded reflection. |
 
 Every lesson also has a "Check yourself" question with instant feedback, key points, and a **Listen** button that reads the lesson aloud (browser text-to-speech).
 

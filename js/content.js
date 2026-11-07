@@ -225,7 +225,9 @@
       [35, 18, 62, 9, 27, 50, 81, 55]
     ],
     challenge: {
-      values: [45, 25, 75, 15, 35, 65, 85],
+      /* Insertion order deliberately differs from BFS order (50, 30, 70, 20, 40, 60, 80, 25),
+         so students can't just click the sequence in the order shown. */
+      values: [50, 30, 20, 70, 40, 80, 60, 25],
       reflectionPrompt: 'What surprised you about BFS order compared to the insertion order?'
     }
   };

@@ -42,6 +42,7 @@ assert.deepStrictEqual(T.insertionSpots(null), [{ parent: null, side: 'root' }])
 
 // The challenge traverses the tree it builds, level by level.
 assert.deepStrictEqual(T.levelOrder(challengeRoot), T.bfsSteps(challengeRoot).filter(s => s.kind === 'visit').map(s => s.current));
+assert.notDeepStrictEqual(T.levelOrder(challengeRoot), challengeValues, 'BFS order must differ from insertion order, or the challenge gives the answer away');
 assert.ok(C.bfsPracticeTrees.length >= 2);
 assert.ok(C.bfsPracticeTrees.every(values => values.length >= 6));
 

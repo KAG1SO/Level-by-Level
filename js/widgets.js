@@ -525,7 +525,7 @@
     var feedback = host.querySelector('[data-role=feedback]');
     var reflection = host.querySelector('[data-role=reflection]');
     var reflectionInput = host.querySelector('[data-role=reflection-input]');
-    var completed = false;
+    var completed = false, bfsMisses = 0;
     reflectionInput.value = options.reflection || '';
     reflectionInput.addEventListener('input', function () { if (options.onReflection) options.onReflection(reflectionInput.value); });
 
@@ -545,10 +545,9 @@
         sequenceEl.innerHTML = '<span class="eyebrow">Insertion order: </span>' + values.map(function (v) { return '<span class="value-chip' + (visited.indexOf(v) !== -1 ? ' is-done' : '') + '">' + esc(v) + '</span>'; }).join('');
         var states = {};
         visited.forEach(function (v) { states[v] = 'visited'; });
-        if (expected !== null) states[expected] = 'queued';
         T.render(treeEl, root, {
           states: states,
-          label: 'Click nodes in breadth-first order. ' + (expected === null ? 'The traversal is complete.' : 'The front of the queue is ' + expected + '.'),
+          label: 'Click nodes in breadth-first order. ' + (expected === null ? 'The traversal is complete.' : visited.length + ' of ' + values.length + ' nodes visited.'),
           onNode: chooseBfs
         });
         if (visit >= steps.length - 2) reflection.hidden = false;
@@ -586,14 +585,23 @@
       if (phase !== 'bfs' || visit >= steps.length - 2) return;
       var expected = steps[visit + 1].current;
       if (value !== expected) {
+        bfsMisses += 1;
         feedback.className = 'feedback is-hint challenge-feedback';
-        feedback.textContent = expected + ' should come next because it is at the front of the queue. Children of nodes you visit join at the back.';
+        if (visited.indexOf(value) !== -1) {
+          feedback.textContent = value + ' has already been visited. Which node is waiting at the front of the queue now?';
+        } else if (bfsMisses === 1) {
+          var depth = T.depthOf(root, expected);
+          feedback.textContent = 'Not yet. BFS finishes a whole level, left to right, before going down. You are still on depth ' + depth + '.';
+        } else {
+          feedback.textContent = expected + ' comes next because it is at the front of the queue. Children of nodes you visit join at the back.';
+        }
         draw('.tnode.is-clickable[data-v="' + value + '"]');
         return;
       }
+      bfsMisses = 0;
       visited.push(value); visit += 1;
       feedback.className = 'feedback is-good challenge-feedback';
-      feedback.textContent = visit >= steps.length - 2 ? 'Correct. The queue is empty, so BFS is finished. Write your reflection below.' : 'Correct. ' + steps[visit + 1].current + ' is now at the front of the queue.';
+      feedback.textContent = visit >= steps.length - 2 ? 'Correct. The queue is empty, so BFS is finished. Write your reflection below.' : 'Correct. ' + value + ' is visited and its children join the back of the queue.';
       draw(visit < steps.length - 2 ? '.tnode.is-clickable[data-v="' + steps[visit + 1].current + '"]' : '');
       if (visit >= steps.length - 2) reflectionInput.focus();
     }
